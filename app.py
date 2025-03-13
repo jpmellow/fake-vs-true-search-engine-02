@@ -10,8 +10,14 @@ load_dotenv()
 
 # Get API key from .env
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
+
+# Streamlit UI
+st.title("📰 Fake News Classifier")
+st.write("🔍 Enter a topic to fetch **real-time news** and classify it as True or Fake.")
+
+# Display error if API key is missing
 if not NEWS_API_KEY:
-    st.error("⚠️ API key is missing. Please add it to your .env file.")
+    st.error("⚠️ API key is missing. Please add it to your `.env` file.")
 
 # News API URL
 NEWS_API_URL = "https://newsapi.org/v2/everything"
@@ -30,3 +36,28 @@ def fetch_news(query):
     else:
         st.error("⚠️ Failed to fetch news. Try again later.")
         return []
+
+# User input for search query
+search_query = st.text_input("🔎 Enter a keyword:", "")
+
+# Toggle for True or Fake news
+news_type = st.radio("📢 Show:", ("True News", "Fake News"))
+
+# Search button
+button = st.button("Search Articles")
+
+if button and search_query:
+    st.info("🔄 Fetching news articles...")
+
+    # Fetch live news
+    articles = fetch_news(search_query)
+
+    if not articles:
+        st.warning("⚠️ No articles found for your search.")
+    else:
+        # Display fetched articles
+        for article in articles:
+            st.subheader(article["title"])
+            st.write(article["description"])
+            st.write(f"[Read More]({article['url']})")
+            st.write("---")
