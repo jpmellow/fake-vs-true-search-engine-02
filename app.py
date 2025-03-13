@@ -1,51 +1,32 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import requests
+import os
+from dotenv import load_dotenv  # Load environment variables
 
-# Load the trained model and vectorizer
-model = joblib.load("news_classifier_model.joblib")
-vectorizer = joblib.load("tfidf_vectorizer.joblib")
+# Load environment variables from .env
+load_dotenv()
 
-# Streamlit UI
-st.title("📰 Fake News Classifier")
-st.write("Search for news articles and classify them as **True** or **Fake**.")
+# Get API key from .env
+NEWS_API_KEY = os.getenv("NEWS_API_KEY")
+if not NEWS_API_KEY:
+    st.error("⚠️ API key is missing. Please add it to your .env file.")
 
-# User input for search query
-search_query = st.text_input("🔍 Enter a keyword:", "")
+# News API URL
+NEWS_API_URL = "https://newsapi.org/v2/everything"
 
-# Toggle for True or Fake news
-news_type = st.radio("📢 Show:", ("True News", "Fake News"))
-
-# Search button
-button = st.button("Search Articles")
-
-if button and search_query:
-    try:
-        # Load dataset for searching (if available)
-        df = pd.read_csv("dataset.csv")
-        df_filtered = df[df['article_text'].str.contains(search_query, case=False, na=False)]
-        
-        if df_filtered.empty:
-            st.warning("⚠️ No matching articles found.")
-        else:
-            # Transform text using TF-IDF
-            text_tfidf = vectorizer.transform(df_filtered['article_text'])
-
-            # Predict labels
-            predictions = model.predict(text_tfidf)
-
-            # Apply the True/False filter
-            label_filter = 1 if news_type == "True News" else 0
-            df_filtered = df_filtered[predictions == label_filter]
-
-            # Display results
-            if df_filtered.empty:
-                st.warning(f"⚠️ No {news_type.lower()} articles found for '{search_query}'.")
-            else:
-                for _, row in df_filtered.iterrows():
-                    st.subheader(row['title'])
-                    st.write(row['article_text'][:500] + "...")  # Show preview
-                    st.write("---")
-    except FileNotFoundError:
-        st.error("🚨 Dataset not available. Try a different search or retrain the model.")
-
+# Function to fetch live news
+def fetch_news(query):
+    params = {
+        "q": query,
+        "language": "en",
+        "sortBy": "publishedAt",
+        "apiKey": NEWS_API_KEY
+    }
+    response = requests.get(NEWS_API_URL, params=params)
+    if response.status_code == 200:
+        return response.json().get("articles", [])
+    else:
+        st.error("⚠️ Failed to fetch news. Try again later.")
+        return []
