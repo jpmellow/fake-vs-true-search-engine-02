@@ -3,8 +3,8 @@ import pandas as pd
 import joblib
 import requests
 import os
-from dotenv import load_dotenv
 import numpy as np
+import time
 
 # Page config
 st.set_page_config(
@@ -27,52 +27,38 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Load trained classifier and vectorizer
-try:
-    vectorizer = joblib.load("tfidf_vectorizer.joblib")
-    if not hasattr(vectorizer, 'idf_') or vectorizer.idf_ is None:
-        st.error("⚠️ TF-IDF vectorizer is not properly fitted. Please ensure the vectorizer was trained before saving.")
+@st.cache_resource
+def load_models():
+    """Load and cache the ML models"""
+    try:
+        with st.spinner('Loading models...'):
+            start_time = time.time()
+            vectorizer = joblib.load("tfidf_vectorizer.joblib")
+            model = joblib.load("news_classifier_model.joblib")
+            load_time = time.time() - start_time
+            st.sidebar.success(f"✅ Models loaded successfully in {load_time:.2f}s")
+            return vectorizer, model
+    except Exception as e:
+        st.error(f"⚠️ Error loading models: {str(e)}")
         st.stop()
-    model = joblib.load("news_classifier_model.joblib")
-    st.sidebar.success("✅ Models loaded successfully")
-    
-    # Debug information about the model
-    st.sidebar.write("### Model Information")
-    st.sidebar.write(f"Vectorizer features: {len(vectorizer.get_feature_names_out())}")
-    st.sidebar.write(f"Model type: {type(model).__name__}")
-    
-except FileNotFoundError as e:
-    st.error("⚠️ Required model files not found. Please ensure both .joblib files are present.")
-    st.stop()
+
+# Load models
+try:
+    vectorizer, model = load_models()
 except Exception as e:
-    st.error(f"⚠️ Error loading models: {str(e)}")
+    st.error("⚠️ Failed to load models. Please check the model files.")
     st.stop()
 
-# Load environment variables from .env
-load_dotenv()
-NEWS_API_KEY = os.getenv("NEWS_API_KEY")
+# Get API key from Streamlit secrets
+try:
+    NEWS_API_KEY = st.secrets["general"]["NEWS_API_KEY"]
+except Exception as e:
+    st.error("⚠️ NEWS_API_KEY not found in Streamlit secrets. Please add it in the deployment settings.")
+    st.stop()
 
 # Streamlit UI
 st.title("📰 Fake vs. True News Search Engine")
 st.markdown("---")
-
-# Sidebar with information
-with st.sidebar:
-    st.header("ℹ️ About")
-    st.write("""
-    This app uses machine learning to classify news articles as True or Fake.
-    
-    - Enter a keyword to search for news
-    - Articles are fetched in real-time
-    - Each article is classified using our trained model
-    - Toggle between True and Fake news results
-    """)
-    
-    st.markdown("---")
-    st.markdown("### 🛠️ Powered by:")
-    st.markdown("- NewsAPI")
-    st.markdown("- XGBoost Classifier")
-    st.markdown("- TF-IDF Vectorization")
 
 def classify_article(content):
     """Classify article content as True (1) or Fake (0)"""
@@ -91,22 +77,7 @@ def classify_article(content):
         st.sidebar.write("---")
         st.sidebar.write("🔍 Classification Details:")
         st.sidebar.write(f"Raw prediction: {prediction}")
-        st.sidebar.write(f"Probabilities: {probabilities}")
-        st.sidebar.write(f"Feature vector shape: {transformed_content.shape}")
-        
-        # Sample some important features
-        feature_names = vectorizer.get_feature_names_out()
-        feature_importances = np.zeros(len(feature_names))
-        for i, score in enumerate(transformed_content.toarray()[0]):
-            if score > 0:
-                feature_importances[i] = score
-        
-        # Show top features for this text
-        top_features_idx = np.argsort(feature_importances)[-5:]
-        st.sidebar.write("\nTop features in text:")
-        for idx in top_features_idx:
-            if feature_importances[idx] > 0:
-                st.sidebar.write(f"- {feature_names[idx]}: {feature_importances[idx]:.4f}")
+        st.sidebar.write(f"Probabilities: Fake={probabilities[0]:.4f}, True={probabilities[1]:.4f}")
         
         return prediction
         
@@ -118,6 +89,7 @@ def classify_article(content):
 # News API configuration
 NEWS_API_URL = "https://newsapi.org/v2/everything"
 
+@st.cache_data(ttl=300)  # Cache results for 5 minutes
 def fetch_news(query):
     """Fetch news articles from NewsAPI with error handling"""
     try:
@@ -134,11 +106,6 @@ def fetch_news(query):
     except requests.RequestException as e:
         st.error(f"⚠️ API Error: {str(e)}")
         return []
-
-# Main content
-if not NEWS_API_KEY:
-    st.error("⚠️ API key is missing. Please add NEWS_API_KEY to your `.env` file.")
-    st.stop()
 
 # Search interface
 col1, col2 = st.columns([3, 1])
@@ -163,7 +130,8 @@ if st.button("🔍 Search Articles"):
                 all_classifications = {"True": 0, "Fake": 0}
                 
                 # Process and classify articles
-                for article in articles:
+                progress_bar = st.progress(0)
+                for i, article in enumerate(articles):
                     content = article.get("content") or article.get("description", "")
                     if content:
                         authenticity = classify_article(content)
@@ -176,6 +144,8 @@ if st.button("🔍 Search Articles"):
                             if (news_type == "True News" and authenticity == 1) or \
                                (news_type == "Fake News" and authenticity == 0):
                                 matching_articles.append(article)
+                    progress_bar.progress((i + 1) / len(articles))
+                progress_bar.empty()
                 
                 # Display classification statistics
                 st.write("---")
