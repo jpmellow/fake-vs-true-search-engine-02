@@ -5,6 +5,9 @@ import requests
 import os
 import numpy as np
 import time
+from urllib.parse import urlparse
+from collections import defaultdict
+import re
 
 # Page config
 st.set_page_config(
@@ -26,6 +29,77 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+
+def extract_base_url(url):
+    """Extract the base domain from a URL."""
+    try:
+        parsed = urlparse(url)
+        # Remove www. if present
+        domain = re.sub(r'^www\.', '', parsed.netloc)
+        return domain
+    except:
+        return None
+
+def analyze_sources(articles, authenticity_results):
+    """Analyze news sources and their reliability patterns."""
+    source_stats = defaultdict(lambda: {'true': 0, 'fake': 0, 'total': 0, 'articles': []})
+    
+    for article, is_true in zip(articles, authenticity_results):
+        if not article.get('url'):
+            continue
+            
+        base_url = extract_base_url(article['url'])
+        if not base_url:
+            continue
+            
+        source_stats[base_url]['total'] += 1
+        source_stats[base_url]['true' if is_true == 1 else 'fake'] += 1
+        source_stats[base_url]['articles'].append(article)
+        
+    return source_stats
+
+def get_source_reliability_score(stats):
+    """Calculate a reliability score for a source."""
+    if stats['total'] == 0:
+        return 0
+    return (stats['true'] / stats['total']) * 100
+
+def find_similar_sources(source_stats, current_sources, top_n=5):
+    """Find similar sources based on reliability patterns."""
+    # Convert reliability patterns to vectors
+    source_vectors = {}
+    for source, stats in source_stats.items():
+        total = stats['total']
+        if total > 0:
+            true_ratio = stats['true'] / total
+            fake_ratio = stats['fake'] / total
+            source_vectors[source] = np.array([true_ratio, fake_ratio])
+    
+    # Find similar sources for each current source
+    similar_sources = set()
+    current_sources = set(current_sources)
+    
+    for source in current_sources:
+        if source not in source_vectors:
+            continue
+            
+        # Calculate similarity with all other sources
+        similarities = []
+        for other_source, other_vector in source_vectors.items():
+            if other_source in current_sources:
+                continue
+                
+            similarity = np.dot(source_vectors[source], other_vector)
+            similarities.append((similarity, other_source))
+        
+        # Add top similar sources
+        similarities.sort(reverse=True)
+        for _, similar_source in similarities[:3]:
+            similar_sources.add(similar_source)
+            if len(similar_sources) >= top_n:
+                break
+                
+    return list(similar_sources)
 
 @st.cache_resource
 def load_models():
@@ -150,6 +224,7 @@ if st.button("🔍 Search Articles"):
                 st.info(f"📊 Found {len(articles)} articles to analyze")
                 matching_articles = []
                 all_classifications = {"True": 0, "Fake": 0}
+                authenticity_results = []
                 
                 # Process and classify articles
                 progress_bar = st.progress(0)
@@ -158,6 +233,7 @@ if st.button("🔍 Search Articles"):
                     if content:
                         authenticity = classify_article(content)
                         if authenticity is not None:
+                            authenticity_results.append(authenticity)
                             if authenticity == 1:
                                 all_classifications["True"] += 1
                             else:
@@ -169,22 +245,54 @@ if st.button("🔍 Search Articles"):
                     progress_bar.progress((i + 1) / len(articles))
                 progress_bar.empty()
                 
-                # Display classification statistics
-                st.write("---")
-                st.write("📊 Classification Summary:")
-                st.write(f"- True News: {all_classifications['True']} articles")
-                st.write(f"- Fake News: {all_classifications['Fake']} articles")
-                st.write("---")
+                # Create two columns for results and recommendations
+                col1, col2 = st.columns([2, 1])
                 
-                # Display results
-                if not matching_articles:
-                    st.warning(f"⚠️ No {news_type.lower()} found for '{search_query}'.")
-                else:
-                    st.success(f"🎯 Found {len(matching_articles)} {news_type.lower()}")
+                with col1:
+                    # Display classification statistics
+                    st.write("---")
+                    st.write("📊 Classification Summary:")
+                    st.write(f"- True News: {all_classifications['True']} articles")
+                    st.write(f"- Fake News: {all_classifications['Fake']} articles")
+                    st.write("---")
                     
-                    for article in matching_articles:
-                        with st.container():
-                            st.markdown(f"### 📰 {article['title']}")
-                            st.markdown(f"🔍 {article.get('description', 'No description available.')}")
-                            st.markdown(f"🔗 [Read full article]({article['url']})")
-                            st.markdown("---")
+                    # Display results
+                    if not matching_articles:
+                        st.warning(f"⚠️ No {news_type.lower()} found for '{search_query}'.")
+                    else:
+                        st.success(f"🎯 Found {len(matching_articles)} {news_type.lower()}")
+                        
+                        for article in matching_articles:
+                            with st.container():
+                                st.markdown(f"### 📰 {article['title']}")
+                                st.markdown(f"🔍 {article.get('description', 'No description available.')}")
+                                st.markdown(f"🔗 [Read full article]({article['url']})")
+                                st.markdown("---")
+                
+                with col2:
+                    # Analyze and display source recommendations
+                    source_stats = analyze_sources(articles, authenticity_results)
+                    current_sources = [extract_base_url(a['url']) for a in matching_articles if a.get('url')]
+                    similar_sources = find_similar_sources(source_stats, current_sources)
+                    
+                    st.markdown("### 📈 News Source Analysis")
+                    
+                    # Show current sources
+                    if current_sources:
+                        st.markdown("#### Current Sources")
+                        for source in set(current_sources):
+                            stats = source_stats[source]
+                            reliability = get_source_reliability_score(stats)
+                            st.markdown(f"- **{source}**")
+                            st.markdown(f"  - Reliability: {reliability:.1f}%")
+                            st.markdown(f"  - Articles: {stats['total']}")
+                    
+                    # Show recommended sources
+                    if similar_sources:
+                        st.markdown("#### Recommended Sources")
+                        for source in similar_sources:
+                            stats = source_stats[source]
+                            reliability = get_source_reliability_score(stats)
+                            st.markdown(f"- **{source}**")
+                            st.markdown(f"  - Reliability: {reliability:.1f}%")
+                            st.markdown(f"  - Articles: {stats['total']}")
