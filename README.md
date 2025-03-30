@@ -1,6 +1,6 @@
 # Fake vs. True News Search Engine
 
-A Streamlit-based web application that uses machine learning to classify news articles as either true or fake. The app fetches real-time news articles based on user queries and analyzes them using a trained XGBoost model.
+A Streamlit-based web application that combines machine learning classification with an intelligent news source recommendation system. The app classifies news articles as either true or fake using an XGBoost model and recommends reliable news sources based on classification patterns.
 
 ## Live Demo
 The app is deployed on Streamlit Cloud and will remain accessible for review. [Click here to try the app](https://fake-vs-true-search-engine-02.streamlit.app/)
@@ -8,11 +8,52 @@ The app is deployed on Streamlit Cloud and will remain accessible for review. [C
 ## Features
 - Real-time news article fetching using NewsAPI
 - Machine learning-based classification (XGBoost)
-- TF-IDF text vectorization
+- TF-IDF text vectorization for article analysis
+- Intelligent news source recommendation system
 - Detailed classification probabilities
 - Clean and intuitive user interface
 - Support for any news topic search
 - Secure API key input (no configuration needed)
+
+## System Components
+
+### 1. News Classification System
+- Uses TF-IDF vectorization to convert article text into numerical features
+- Implements XGBoost classifier trained on a balanced dataset of true/fake news
+- Achieves high accuracy in distinguishing true from fake news
+- Performance metrics:
+  - Training accuracy: 97.66%
+  - Testing accuracy: 97.56%
+  - Balanced precision and recall
+
+### 2. Source Recommendation System
+Our recommendation system analyzes news sources and suggests similar sources based on their reliability patterns. Instead of using traditional embedding models, we implemented a novel approach that:
+
+1. **Vector Representation:**
+   - Creates vectors from source reliability patterns
+   - Considers true/fake classification ratios
+   - Incorporates confidence levels based on sample size
+
+2. **Reliability Scoring:**
+   - Calculates weighted reliability scores for each news source
+   - Implements confidence levels:
+     - High: 5+ articles analyzed
+     - Medium: 3-4 articles analyzed
+     - Low: 1-2 articles analyzed
+   - Adjusts scores towards neutral (50%) for low-confidence sources
+
+3. **Similarity Search:**
+   - Uses cosine similarity between source vectors
+   - Considers both reliability patterns and classification results
+   - Weights recommendations based on:
+     - 70% reliability score
+     - 30% similarity to current sources
+
+4. **Recommendation Logic:**
+   - For True News: Recommends sources with >40% reliability
+   - For Fake News: Recommends sources with <60% reliability
+   - Prioritizes sources with higher confidence levels
+   - Dynamically updates based on real-time classifications
 
 ## Technical Stack
 - Python 3.8+
@@ -60,24 +101,12 @@ The app is deployed on Streamlit Cloud and will remain accessible for review. [C
    streamlit run app.py
    ```
 
-## Dataset
-The model was trained on a balanced dataset of true and fake news articles, with features including:
-- Article text content
-- Writing style and tone
-- Semantic patterns
-- Source credibility markers
-
-## Model Performance
-- Training accuracy: 97.66%
-- Testing accuracy: 97.56%
-- Balanced precision and recall for both true and fake news classes
-
 ## Usage
 1. Enter your NewsAPI key in the sidebar (first time only)
 2. Enter a search term in the search box
 3. Select whether to view True or Fake news classifications
 4. Click "Search Articles" to fetch and analyze news
-5. View the results with classification probabilities
+5. View article classifications and source recommendations
 
 ## Project Structure
 ```
