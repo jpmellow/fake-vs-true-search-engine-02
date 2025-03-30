@@ -3,7 +3,7 @@
 A Streamlit-based web application that uses machine learning to classify news articles as either true or fake. The app fetches real-time news articles based on user queries and analyzes them using a trained XGBoost model.
 
 ## Live Demo
-[Click here to try the app on Streamlit Cloud](#) (Link will be added after deployment)
+The app is deployed on Streamlit Cloud and will remain accessible for review. [Click here to try the app](https://fake-vs-true-search-engine-02.streamlit.app/)
 
 ## Features
 - Real-time news article fetching using NewsAPI
@@ -12,6 +12,7 @@ A Streamlit-based web application that uses machine learning to classify news ar
 - Detailed classification probabilities
 - Clean and intuitive user interface
 - Support for any news topic search
+- Secure API key input (no configuration needed)
 
 ## Technical Stack
 - Python 3.8+
@@ -27,6 +28,11 @@ A Streamlit-based web application that uses machine learning to classify news ar
 1. Python 3.8 or higher
 2. NewsAPI key (get it from [https://newsapi.org](https://newsapi.org))
 
+### Using the Live Demo
+1. Visit the [live demo](https://fake-vs-true-search-engine-02.streamlit.app/)
+2. Enter your NewsAPI key in the sidebar (it will be securely hidden)
+3. Start searching and analyzing news articles!
+
 ### Local Installation
 1. Clone the repository:
    ```bash
@@ -39,7 +45,7 @@ A Streamlit-based web application that uses machine learning to classify news ar
    pip install -r requirements.txt
    ```
 
-3. Create a `.env` file in the project root:
+3. Create a `.env` file in the project root (optional, you can also enter the key in the app):
    ```
    NEWS_API_KEY=your_api_key_here
    ```
@@ -67,17 +73,18 @@ The model was trained on a balanced dataset of true and fake news articles, with
 - Balanced precision and recall for both true and fake news classes
 
 ## Usage
-1. Enter a search term in the search box
-2. Select whether to view True or Fake news classifications
-3. Click "Search Articles" to fetch and analyze news
-4. View the results with classification probabilities
+1. Enter your NewsAPI key in the sidebar (first time only)
+2. Enter a search term in the search box
+3. Select whether to view True or Fake news classifications
+4. Click "Search Articles" to fetch and analyze news
+5. View the results with classification probabilities
 
 ## Project Structure
 ```
 ├── app.py              # Main Streamlit application
 ├── train_model.py      # Model training script
 ├── requirements.txt    # Project dependencies
-├── .env               # Environment variables (not in repo)
+├── .env               # Environment variables (optional)
 ├── tfidf_vectorizer.joblib  # Trained vectorizer
 └── news_classifier_model.joblib  # Trained model
 ```
