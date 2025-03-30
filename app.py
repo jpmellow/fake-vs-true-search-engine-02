@@ -49,39 +49,33 @@ except Exception as e:
     st.error("⚠️ Failed to load models. Please check the model files.")
     st.stop()
 
-# Get API key from environment variables, Streamlit secrets, or .env
+# Get API key from .env or user input
 try:
-    # Try environment variables first (for Streamlit Cloud)
-    NEWS_API_KEY = os.environ.get("NEWS_API_KEY")
-    if NEWS_API_KEY:
-        st.success("✅ Using API key from environment variables")
-    # Then try Streamlit secrets
-    elif hasattr(st.secrets, "NEWS_API_KEY"):
-        NEWS_API_KEY = st.secrets.NEWS_API_KEY
-        st.success("✅ Using API key from Streamlit secrets")
-    # Finally try .env file (for local development)
-    else:
-        from dotenv import load_dotenv
-        load_dotenv()
-        NEWS_API_KEY = os.getenv("NEWS_API_KEY")
-        if NEWS_API_KEY:
-            st.success("✅ Using API key from .env file")
-        else:
-            st.error("⚠️ No API key found")
-            st.write("Please configure your API key in one of these ways:")
-            st.write("1. Add as environment variable in Streamlit Cloud settings")
-            st.write("2. Add as secret in Streamlit Cloud")
-            st.write("3. Create a local .env file for development")
-            st.stop()
-
-    # Debug info
-    st.sidebar.write("Debug Info:")
-    st.sidebar.write("Environment vars:", bool(os.environ.get("NEWS_API_KEY")))
-    st.sidebar.write("Has secrets:", hasattr(st.secrets, "NEWS_API_KEY"))
+    # Try .env file first (for local development)
+    from dotenv import load_dotenv
+    load_dotenv()
+    NEWS_API_KEY = os.getenv("NEWS_API_KEY")
     
+    # If no .env, ask for API key input
+    if not NEWS_API_KEY:
+        st.sidebar.markdown("### 🔑 API Key Configuration")
+        input_api_key = st.sidebar.text_input(
+            "Enter your NewsAPI key:",
+            type="password",
+            help="Get your key at https://newsapi.org"
+        )
+        if input_api_key:
+            NEWS_API_KEY = input_api_key
+            st.sidebar.success("✅ API key set")
+        else:
+            st.error("⚠️ Please enter your NewsAPI key in the sidebar")
+            st.write("You can get a free API key at [NewsAPI.org](https://newsapi.org)")
+            st.stop()
+    else:
+        st.sidebar.success("✅ Using API key from .env file")
+        
 except Exception as e:
     st.error(f"⚠️ Error accessing API key: {str(e)}")
-    st.sidebar.error(f"Debug - Full error: {repr(e)}")
     st.stop()
 
 # News API configuration
