@@ -51,20 +51,15 @@ except Exception as e:
 
 # Get API key from Streamlit secrets
 try:
-    st.write("Debug: Available secrets sections:", st.secrets.sections())
-    if "general" in st.secrets:
-        st.write("Debug: Found 'general' section")
-        if "NEWS_API_KEY" in st.secrets["general"]:
-            st.write("Debug: Found NEWS_API_KEY in general section")
-            NEWS_API_KEY = st.secrets["general"]["NEWS_API_KEY"]
-        else:
-            st.error("⚠️ NEWS_API_KEY not found in general section")
-            st.stop()
-    else:
-        st.error("⚠️ 'general' section not found in secrets")
-        st.stop()
+    st.write("Debug: Available secrets:", st.secrets)
+    NEWS_API_KEY = st.secrets.NEWS_API_KEY
+    st.success("✅ Found API key in secrets")
 except Exception as e:
     st.error(f"⚠️ Error accessing secrets: {str(e)}")
+    st.write("Please add your NewsAPI key to Streamlit Cloud secrets like this:")
+    st.code("""
+NEWS_API_KEY = "your_api_key_here"
+""")
     st.stop()
 
 # Streamlit UI
