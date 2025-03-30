@@ -59,22 +59,38 @@ def analyze_sources(articles, authenticity_results):
     return source_stats
 
 def get_source_reliability_score(stats):
-    """Calculate a reliability score for a source."""
+    """Calculate a reliability score for a source with confidence weighting."""
     if stats['total'] == 0:
-        return 0
-    return (stats['true'] / stats['total']) * 100
+        return 0, "No Data"
+        
+    # Basic reliability score
+    reliability = (stats['true'] / stats['total']) * 100
+    
+    # Confidence level based on number of articles
+    if stats['total'] >= 5:
+        confidence = "High"
+    elif stats['total'] >= 3:
+        confidence = "Medium"
+    else:
+        confidence = "Low"
+        # Adjust reliability towards 50% for low sample sizes
+        reliability = (reliability * stats['total'] + 50 * (3 - stats['total'])) / 3
+        
+    return reliability, confidence
 
 def find_similar_sources(source_stats, current_sources, news_type, top_n=5):
     """Find similar sources based on reliability patterns and news type preference."""
     # Convert reliability patterns to vectors
     source_vectors = {}
     reliability_scores = {}
+    reliability_confidence = {}
     
     for source, stats in source_stats.items():
         total = stats['total']
         if total > 0:
-            reliability = get_source_reliability_score(stats)
+            reliability, confidence = get_source_reliability_score(stats)
             reliability_scores[source] = reliability
+            reliability_confidence[source] = confidence
             true_ratio = stats['true'] / total
             fake_ratio = stats['fake'] / total
             source_vectors[source] = np.array([true_ratio, fake_ratio])
@@ -94,12 +110,12 @@ def find_similar_sources(source_stats, current_sources, news_type, top_n=5):
     source_scores = []
     for source in potential_sources:
         reliability = reliability_scores[source]
+        confidence = reliability_confidence[source]
         
-        # Skip sources with low reliability when searching for true news
-        if news_type == "True News" and reliability < 50:
+        # More lenient thresholds for recommendations
+        if news_type == "True News" and reliability < 40 and confidence != "Low":
             continue
-        # Skip sources with high reliability when searching for fake news
-        if news_type == "Fake News" and reliability > 50:
+        if news_type == "Fake News" and reliability > 60 and confidence != "Low":
             continue
             
         # Calculate similarity score
@@ -118,11 +134,11 @@ def find_similar_sources(source_stats, current_sources, news_type, top_n=5):
         else:
             final_score = (avg_similarity * 0.3) + ((100 - reliability) * 0.7)
             
-        source_scores.append((final_score, reliability, source))
+        source_scores.append((final_score, reliability, confidence, source))
     
     # Sort by final score and get top recommendations
     source_scores.sort(reverse=True)
-    similar_sources = [(s[2], s[1]) for s in source_scores[:top_n]]
+    similar_sources = [(s[3], s[1], s[2]) for s in source_scores[:top_n]]
     
     return similar_sources
 
@@ -307,9 +323,9 @@ if st.button("🔍 Search Articles"):
                         with st.expander("🔍 Current Sources", expanded=False):
                             for source in set(current_sources):
                                 stats = source_stats[source]
-                                reliability = get_source_reliability_score(stats)
+                                reliability, confidence = get_source_reliability_score(stats)
                                 st.markdown(f"- **{source}**")
-                                st.markdown(f"  - Reliability: {reliability:.1f}%")
+                                st.markdown(f"  - Reliability: {reliability:.1f}% ({confidence} confidence)")
                                 st.markdown(f"  - Articles: {stats['total']}")
                     
                     # Show recommended sources in expanded expander
@@ -317,8 +333,8 @@ if st.button("🔍 Search Articles"):
                         if not similar_sources:
                             st.info(f"No additional {news_type.lower()} sources found with suitable reliability scores.")
                         else:
-                            for source, reliability in similar_sources:
+                            for source, reliability, confidence in similar_sources:
                                 stats = source_stats[source]
                                 st.markdown(f"- **{source}**")
-                                st.markdown(f"  - Reliability: {reliability:.1f}%")
+                                st.markdown(f"  - Reliability: {reliability:.1f}% ({confidence} confidence)")
                                 st.markdown(f"  - Articles: {stats['total']}")
