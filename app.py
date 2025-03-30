@@ -313,13 +313,12 @@ if st.button("🔍 Search Articles"):
                                 st.markdown(f"  - Articles: {stats['total']}")
                     
                     # Show recommended sources in expanded expander
-                    if similar_sources:
-                        with st.expander("🌟 Recommended Sources", expanded=True):
-                            if not similar_sources:
-                                st.info(f"No additional {news_type.lower()} sources found.")
-                            else:
-                                for source, reliability in similar_sources:
-                                    stats = source_stats[source]
-                                    st.markdown(f"- **{source}**")
-                                    st.markdown(f"  - Reliability: {reliability:.1f}%")
-                                    st.markdown(f"  - Articles: {stats['total']}")
+                    with st.expander("🌟 Recommended Sources", expanded=True):
+                        if not similar_sources:
+                            st.info(f"No additional {news_type.lower()} sources found with suitable reliability scores.")
+                        else:
+                            for source, reliability in similar_sources:
+                                stats = source_stats[source]
+                                st.markdown(f"- **{source}**")
+                                st.markdown(f"  - Reliability: {reliability:.1f}%")
+                                st.markdown(f"  - Articles: {stats['total']}")
