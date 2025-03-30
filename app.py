@@ -49,21 +49,27 @@ except Exception as e:
     st.error("⚠️ Failed to load models. Please check the model files.")
     st.stop()
 
-# Get API key from Streamlit secrets
+# Get API key from Streamlit secrets or .env
 try:
-    # Try dictionary-style access first
+    # Try Streamlit secrets first
     if "NEWS_API_KEY" in st.secrets:
         NEWS_API_KEY = st.secrets["NEWS_API_KEY"]
-        st.success("✅ Found API key in secrets")
+        st.success("✅ Using API key from Streamlit secrets")
     else:
-        st.error("⚠️ NEWS_API_KEY not found in secrets")
-        st.write("Please add your NewsAPI key to Streamlit Cloud secrets **exactly** like this:")
-        st.code('NEWS_API_KEY = "your_api_key_here"')
-        st.write("Make sure:")
-        st.write("1. No [general] or other sections")
-        st.write("2. Exact capitalization: NEWS_API_KEY")
-        st.write("3. Your key is in quotes")
-        st.stop()
+        # Fall back to .env
+        from dotenv import load_dotenv
+        load_dotenv()
+        NEWS_API_KEY = os.getenv("NEWS_API_KEY")
+        if NEWS_API_KEY:
+            st.success("✅ Using API key from .env file")
+        else:
+            st.error("⚠️ No API key found")
+            st.write("Please either:")
+            st.write("1. Add to Streamlit Cloud secrets:")
+            st.code('NEWS_API_KEY = "your_api_key_here"')
+            st.write("2. Or create a .env file with:")
+            st.code('NEWS_API_KEY=your_api_key_here')
+            st.stop()
 except Exception as e:
     st.error(f"⚠️ Error accessing secrets: {str(e)}")
     st.stop()
