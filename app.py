@@ -51,15 +51,21 @@ except Exception as e:
 
 # Get API key from Streamlit secrets
 try:
-    st.write("Debug: Available secrets:", st.secrets)
-    NEWS_API_KEY = st.secrets.NEWS_API_KEY
-    st.success("✅ Found API key in secrets")
+    # Try dictionary-style access first
+    if "NEWS_API_KEY" in st.secrets:
+        NEWS_API_KEY = st.secrets["NEWS_API_KEY"]
+        st.success("✅ Found API key in secrets")
+    else:
+        st.error("⚠️ NEWS_API_KEY not found in secrets")
+        st.write("Please add your NewsAPI key to Streamlit Cloud secrets **exactly** like this:")
+        st.code('NEWS_API_KEY = "your_api_key_here"')
+        st.write("Make sure:")
+        st.write("1. No [general] or other sections")
+        st.write("2. Exact capitalization: NEWS_API_KEY")
+        st.write("3. Your key is in quotes")
+        st.stop()
 except Exception as e:
     st.error(f"⚠️ Error accessing secrets: {str(e)}")
-    st.write("Please add your NewsAPI key to Streamlit Cloud secrets like this:")
-    st.code("""
-NEWS_API_KEY = "your_api_key_here"
-""")
     st.stop()
 
 # Streamlit UI
