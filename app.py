@@ -49,20 +49,18 @@ except Exception as e:
     st.error("⚠️ Failed to load models. Please check the model files.")
     st.stop()
 
-# Get API key from Streamlit secrets or .env
+# Get API key from environment variables, Streamlit secrets, or .env
 try:
-    # Debug info about secrets
-    st.sidebar.write("Debug Info:")
-    st.sidebar.write("Secrets type:", type(st.secrets))
-    st.sidebar.write("Secrets dir:", dir(st.secrets))
-    st.sidebar.write("Secrets dict:", dict(st.secrets))
-    
-    # Try Streamlit secrets first
-    if "NEWS_API_KEY" in st.secrets:
-        NEWS_API_KEY = st.secrets["NEWS_API_KEY"]
+    # Try environment variables first (for Streamlit Cloud)
+    NEWS_API_KEY = os.environ.get("NEWS_API_KEY")
+    if NEWS_API_KEY:
+        st.success("✅ Using API key from environment variables")
+    # Then try Streamlit secrets
+    elif hasattr(st.secrets, "NEWS_API_KEY"):
+        NEWS_API_KEY = st.secrets.NEWS_API_KEY
         st.success("✅ Using API key from Streamlit secrets")
+    # Finally try .env file (for local development)
     else:
-        # Fall back to .env
         from dotenv import load_dotenv
         load_dotenv()
         NEWS_API_KEY = os.getenv("NEWS_API_KEY")
@@ -70,16 +68,42 @@ try:
             st.success("✅ Using API key from .env file")
         else:
             st.error("⚠️ No API key found")
-            st.write("Please either:")
-            st.write("1. Add to Streamlit Cloud secrets:")
-            st.code('NEWS_API_KEY = "your_api_key_here"')
-            st.write("2. Or create a .env file with:")
-            st.code('NEWS_API_KEY=your_api_key_here')
+            st.write("Please configure your API key in one of these ways:")
+            st.write("1. Add as environment variable in Streamlit Cloud settings")
+            st.write("2. Add as secret in Streamlit Cloud")
+            st.write("3. Create a local .env file for development")
             st.stop()
+
+    # Debug info
+    st.sidebar.write("Debug Info:")
+    st.sidebar.write("Environment vars:", bool(os.environ.get("NEWS_API_KEY")))
+    st.sidebar.write("Has secrets:", hasattr(st.secrets, "NEWS_API_KEY"))
+    
 except Exception as e:
-    st.error(f"⚠️ Error accessing secrets: {str(e)}")
+    st.error(f"⚠️ Error accessing API key: {str(e)}")
     st.sidebar.error(f"Debug - Full error: {repr(e)}")
     st.stop()
+
+# News API configuration
+NEWS_API_URL = "https://newsapi.org/v2/everything"
+
+@st.cache_data(ttl=300)  # Cache results for 5 minutes
+def fetch_news(query):
+    """Fetch news articles from NewsAPI with error handling"""
+    try:
+        params = {
+            "q": query,
+            "language": "en",
+            "sortBy": "publishedAt",
+            "pageSize": 50,
+            "apiKey": NEWS_API_KEY
+        }
+        response = requests.get(NEWS_API_URL, params=params, timeout=10)
+        response.raise_for_status()
+        return response.json().get("articles", [])
+    except requests.RequestException as e:
+        st.error(f"⚠️ API Error: {str(e)}")
+        return []
 
 # Streamlit UI
 st.title("📰 Fake vs. True News Search Engine")
@@ -110,27 +134,6 @@ def classify_article(content):
         st.error(f"⚠️ Classification Error: {str(e)}")
         st.sidebar.error(f"Debug - Error details: {str(e)}")
         return None
-
-# News API configuration
-NEWS_API_URL = "https://newsapi.org/v2/everything"
-
-@st.cache_data(ttl=300)  # Cache results for 5 minutes
-def fetch_news(query):
-    """Fetch news articles from NewsAPI with error handling"""
-    try:
-        params = {
-            "q": query,
-            "language": "en",
-            "sortBy": "publishedAt",
-            "pageSize": 50,
-            "apiKey": NEWS_API_KEY
-        }
-        response = requests.get(NEWS_API_URL, params=params, timeout=10)
-        response.raise_for_status()
-        return response.json().get("articles", [])
-    except requests.RequestException as e:
-        st.error(f"⚠️ API Error: {str(e)}")
-        return []
 
 # Search interface
 col1, col2 = st.columns([3, 1])
