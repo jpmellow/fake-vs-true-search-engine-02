@@ -277,22 +277,22 @@ if st.button("🔍 Search Articles"):
                     
                     st.markdown("### 📈 News Source Analysis")
                     
-                    # Show current sources
+                    # Show current sources in collapsed expander
                     if current_sources:
-                        st.markdown("#### Current Sources")
-                        for source in set(current_sources):
-                            stats = source_stats[source]
-                            reliability = get_source_reliability_score(stats)
-                            st.markdown(f"- **{source}**")
-                            st.markdown(f"  - Reliability: {reliability:.1f}%")
-                            st.markdown(f"  - Articles: {stats['total']}")
+                        with st.expander("🔍 Current Sources", expanded=False):
+                            for source in set(current_sources):
+                                stats = source_stats[source]
+                                reliability = get_source_reliability_score(stats)
+                                st.markdown(f"- **{source}**")
+                                st.markdown(f"  - Reliability: {reliability:.1f}%")
+                                st.markdown(f"  - Articles: {stats['total']}")
                     
-                    # Show recommended sources
+                    # Show recommended sources in expanded expander
                     if similar_sources:
-                        st.markdown("#### Recommended Sources")
-                        for source in similar_sources:
-                            stats = source_stats[source]
-                            reliability = get_source_reliability_score(stats)
-                            st.markdown(f"- **{source}**")
-                            st.markdown(f"  - Reliability: {reliability:.1f}%")
-                            st.markdown(f"  - Articles: {stats['total']}")
+                        with st.expander("🌟 Recommended Sources", expanded=True):
+                            for source in similar_sources:
+                                stats = source_stats[source]
+                                reliability = get_source_reliability_score(stats)
+                                st.markdown(f"- **{source}**")
+                                st.markdown(f"  - Reliability: {reliability:.1f}%")
+                                st.markdown(f"  - Articles: {stats['total']}")
