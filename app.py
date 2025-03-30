@@ -64,42 +64,67 @@ def get_source_reliability_score(stats):
         return 0
     return (stats['true'] / stats['total']) * 100
 
-def find_similar_sources(source_stats, current_sources, top_n=5):
-    """Find similar sources based on reliability patterns."""
+def find_similar_sources(source_stats, current_sources, news_type, top_n=5):
+    """Find similar sources based on reliability patterns and news type preference."""
     # Convert reliability patterns to vectors
     source_vectors = {}
+    reliability_scores = {}
+    
     for source, stats in source_stats.items():
         total = stats['total']
         if total > 0:
+            reliability = get_source_reliability_score(stats)
+            reliability_scores[source] = reliability
             true_ratio = stats['true'] / total
             fake_ratio = stats['fake'] / total
             source_vectors[source] = np.array([true_ratio, fake_ratio])
     
     # Find similar sources for each current source
-    similar_sources = set()
+    similar_sources = []
     current_sources = set(current_sources)
     
-    for source in current_sources:
-        if source not in source_vectors:
+    # Calculate average reliability of current sources
+    current_reliabilities = [reliability_scores[s] for s in current_sources if s in reliability_scores]
+    target_reliability = np.mean(current_reliabilities) if current_reliabilities else 50.0
+    
+    # Get all potential sources excluding current ones
+    potential_sources = set(source_vectors.keys()) - current_sources
+    
+    # Score each potential source
+    source_scores = []
+    for source in potential_sources:
+        reliability = reliability_scores[source]
+        
+        # Skip sources with low reliability when searching for true news
+        if news_type == "True News" and reliability < 50:
+            continue
+        # Skip sources with high reliability when searching for fake news
+        if news_type == "Fake News" and reliability > 50:
             continue
             
-        # Calculate similarity with all other sources
-        similarities = []
-        for other_source, other_vector in source_vectors.items():
-            if other_source in current_sources:
-                continue
-                
-            similarity = np.dot(source_vectors[source], other_vector)
-            similarities.append((similarity, other_source))
+        # Calculate similarity score
+        similarity_scores = []
+        for curr_source in current_sources:
+            if curr_source in source_vectors:
+                similarity = np.dot(source_vectors[curr_source], source_vectors[source])
+                similarity_scores.append(similarity)
         
-        # Add top similar sources
-        similarities.sort(reverse=True)
-        for _, similar_source in similarities[:3]:
-            similar_sources.add(similar_source)
-            if len(similar_sources) >= top_n:
-                break
-                
-    return list(similar_sources)
+        # Average similarity with current sources
+        avg_similarity = np.mean(similarity_scores) if similarity_scores else 0
+        
+        # Combine similarity and reliability for final score
+        if news_type == "True News":
+            final_score = (avg_similarity * 0.3) + (reliability * 0.7)
+        else:
+            final_score = (avg_similarity * 0.3) + ((100 - reliability) * 0.7)
+            
+        source_scores.append((final_score, reliability, source))
+    
+    # Sort by final score and get top recommendations
+    source_scores.sort(reverse=True)
+    similar_sources = [(s[2], s[1]) for s in source_scores[:top_n]]
+    
+    return similar_sources
 
 @st.cache_resource
 def load_models():
@@ -273,7 +298,7 @@ if st.button("🔍 Search Articles"):
                     # Analyze and display source recommendations
                     source_stats = analyze_sources(articles, authenticity_results)
                     current_sources = [extract_base_url(a['url']) for a in matching_articles if a.get('url')]
-                    similar_sources = find_similar_sources(source_stats, current_sources)
+                    similar_sources = find_similar_sources(source_stats, current_sources, news_type)
                     
                     st.markdown("### 📈 News Source Analysis")
                     
@@ -290,9 +315,11 @@ if st.button("🔍 Search Articles"):
                     # Show recommended sources in expanded expander
                     if similar_sources:
                         with st.expander("🌟 Recommended Sources", expanded=True):
-                            for source in similar_sources:
-                                stats = source_stats[source]
-                                reliability = get_source_reliability_score(stats)
-                                st.markdown(f"- **{source}**")
-                                st.markdown(f"  - Reliability: {reliability:.1f}%")
-                                st.markdown(f"  - Articles: {stats['total']}")
+                            if not similar_sources:
+                                st.info(f"No additional {news_type.lower()} sources found.")
+                            else:
+                                for source, reliability in similar_sources:
+                                    stats = source_stats[source]
+                                    st.markdown(f"- **{source}**")
+                                    st.markdown(f"  - Reliability: {reliability:.1f}%")
+                                    st.markdown(f"  - Articles: {stats['total']}")
