@@ -51,6 +51,12 @@ except Exception as e:
 
 # Get API key from Streamlit secrets or .env
 try:
+    # Debug info about secrets
+    st.sidebar.write("Debug Info:")
+    st.sidebar.write("Secrets type:", type(st.secrets))
+    st.sidebar.write("Secrets dir:", dir(st.secrets))
+    st.sidebar.write("Secrets dict:", dict(st.secrets))
+    
     # Try Streamlit secrets first
     if "NEWS_API_KEY" in st.secrets:
         NEWS_API_KEY = st.secrets["NEWS_API_KEY"]
@@ -72,6 +78,7 @@ try:
             st.stop()
 except Exception as e:
     st.error(f"⚠️ Error accessing secrets: {str(e)}")
+    st.sidebar.error(f"Debug - Full error: {repr(e)}")
     st.stop()
 
 # Streamlit UI
